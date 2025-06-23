@@ -23,11 +23,11 @@
       color: #00ff00;
       padding: 20px;
       white-space: pre;
-      user-select: text; /* Kopyalamaya izin ver */
+      user-select: text;
       display: flex;
       flex-direction: column;
       align-items: flex-start;
-      justify-content: center;
+      justify-content: flex-start;
       position: relative;
       z-index: 1;
     }
@@ -59,28 +59,28 @@
       max-width: 700px;
       font-family: monospace;
       color: #00ff00;
-      user-select: text; /* Kopyalamaya izin ver */
+      user-select: text;
       white-space: pre-wrap;
     }
-    #terminal-output {
-      margin-top: 10px;
-      color: #00ff00;
-      white-space: pre-wrap;
-      user-select: text; /* Kopyalamaya izin ver */
-      font-size: 13px;  /* küçültülmüş font boyutu */
+    .line {
+      font-size: 13px;
     }
-    #terminal-input-wrapper {
-      line-height: 1;
-      font-size: 16px;
+    .input-line {
+      font-size: 13px;
     }
-    #terminal-input {
+    .prompt {
+      white-space: pre;
+      display: inline;
+    }
+    .input {
       background: transparent;
       border: none;
       outline: none;
       color: #00ff00;
       font-family: monospace;
-      font-size: 16px;
-      width: calc(100% - 40px);
+      font-size: 13px;
+      display: inline;
+      width: auto;
     }
   </style>
 </head>
@@ -115,12 +115,7 @@
 
 <div class="footer">type --help to see commands</div>
 
-<div id="terminal-container">
-  <pre id="terminal-input-wrapper">┌──(mang0㉿mang0)-[~]
-└─$ <input id="terminal-input" autocomplete="off" />
-  </pre>
-  <pre id="terminal-output"></pre>
-</div>
+<div id="terminal-container"></div>
 
 <script>
   let uptimeHours = 0, uptimeMinutes = 0;
@@ -151,7 +146,7 @@
     return navigator.deviceMemory ? (navigator.deviceMemory * 1024).toFixed(0) + " MB" : "Unknown";
   }
   function updateHardwareInfo() {
-    document.getElementById('resolution').textContent = window.innerWidth + "x" + window.innerHeight;
+    updateResolution();
     document.getElementById('cpu').textContent = getCPUInfo();
     document.getElementById('gpu').textContent = getGPUInfo();
     document.getElementById('memory').textContent = getMemoryInfo();
@@ -180,54 +175,68 @@
   }
   setInterval(drawMatrix, 50);
 
-  const terminalInput = document.getElementById("terminal-input");
-  const terminalOutput = document.getElementById("terminal-output");
-
+  const terminalContainer = document.getElementById("terminal-container");
   const commands = {
-    "--help": `Available commands:
---help         Show this help message
-clear          Clear the terminal
-version        Show MangoOS version
-neofetch       Display system info
-uname -a       Show kernel and system info
-ls             List current directory
-cd             Change directory (mock)
-whoami         Display current user`,
+    "--help": `Available commands:\n--help         Show this help message\nclear          Clear the terminal\nversion        Show MangoOS version\nneofetch       Display system info\nuname -a       Show kernel and system info\nls             List current directory\ncd             Change directory (mock)\nwhoami         Display current user\ninstagram      Show Instagram link`,
     "version": "MangoOS version 1.0.0",
-    "neofetch": `MangoOS 1.0.0
----------------
-OS: MangoOS 1.0.0
-Kernel: 5.15.0-mango
-Shell: zsh 5.8
-Resolution: ${window.innerWidth}x${window.innerHeight}
-CPU: ${getCPUInfo()}
-GPU: ${getGPUInfo()}
-Memory: ${getMemoryInfo()}`,
+    "neofetch": () => `MangoOS 1.0.0\n---------------\nOS: MangoOS 1.0.0\nKernel: 5.15.0-mango\nShell: zsh 5.8\nResolution: ${window.innerWidth}x${window.innerHeight}\nCPU: ${getCPUInfo()}\nGPU: ${getGPUInfo()}\nMemory: ${getMemoryInfo()}`,
     "uname -a": "MangoOS 5.15.0-mango #1 SMP Fri Jun 21 2025 x86_64 GNU/Linux",
     "ls": "Desktop  Documents  Downloads  Music  Pictures  Videos",
     "cd": "You are not allowed to leave this directory :)",
-    "whoami": "mang0"
+    "whoami": "mang0",
+    "instagram": () => "Instagram: https://instagram.com/mang0.inc"
   };
 
-  terminalInput.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") {
-      const cmd = terminalInput.value.trim();
-      if (!cmd) return;
+  function createInputLine() {
+    const wrapper = document.createElement("div");
+    wrapper.className = "input-line";
 
-      if (cmd === "--help") {
-        terminalOutput.textContent += `$ ${cmd}\n${commands["--help"]}\n\n`;
-      } else if (cmd === "clear") {
-        terminalOutput.textContent = "";
-      } else if (commands[cmd]) {
-        terminalOutput.textContent += `$ ${cmd}\n${commands[cmd]}\n\n`;
-      } else {
-        terminalOutput.textContent += `$ ${cmd}\nCommand not found: ${cmd}\n\n`;
+    const prompt = document.createElement("span");
+    prompt.className = "prompt";
+    prompt.textContent = "┌──(mang0㉿mang0)-[~]\n└─$ ";
+
+    const input = document.createElement("input");
+    input.className = "input";
+    input.autocomplete = "off";
+    input.autofocus = true;
+
+    wrapper.appendChild(prompt);
+    wrapper.appendChild(input);
+    terminalContainer.appendChild(wrapper);
+
+    input.focus();
+
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        const cmd = input.value.trim();
+        wrapper.removeChild(input);
+        wrapper.textContent += cmd;
+
+        if (cmd === "clear") {
+          terminalContainer.innerHTML = "";
+          createInputLine();
+          return;
+        }
+
+        let output = commands[cmd];
+        if (typeof output === "function") output = output();
+        if (!output) output = `Command not found: ${cmd}`;
+
+        const outputLine = document.createElement("div");
+        outputLine.className = "line";
+        outputLine.innerHTML = output.includes("https://") ? `<a href="${output.split(' ').pop()}" target="_blank">${output}</a>` : output;
+        terminalContainer.appendChild(outputLine);
+
+        createInputLine();
+
+        setTimeout(() => {
+          input.scrollIntoView({ behavior: "smooth", block: "center" });
+        }, 10);
       }
+    });
+  }
 
-      terminalInput.value = "";
-      terminalOutput.scrollTop = terminalOutput.scrollHeight;
-    }
-  });
+  createInputLine();
 </script>
 </body>
 </html>
