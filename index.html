@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>MangoOS Terminal</title>
+  <script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"></script>
   <style>
     html, body {
       margin: 0; padding: 0; height: 100%;
@@ -66,11 +67,16 @@
       font-size: 13px;
     }
     .input-line {
+      display: flex;
+      flex-direction: column;
       font-size: 13px;
     }
     .prompt {
       white-space: pre;
-      display: inline;
+    }
+    .input-wrapper {
+      display: flex;
+      align-items: center;
     }
     .input {
       background: transparent;
@@ -79,8 +85,7 @@
       color: #00ff00;
       font-family: monospace;
       font-size: 13px;
-      display: inline;
-      width: auto;
+      flex-grow: 1;
     }
   </style>
 </head>
@@ -117,126 +122,7 @@
 
 <div id="terminal-container"></div>
 
-<script>
-  let uptimeHours = 0, uptimeMinutes = 0;
-  function updateUptime() {
-    uptimeMinutes++;
-    if (uptimeMinutes >= 60) {
-      uptimeMinutes = 0;
-      uptimeHours++;
-    }
-    document.getElementById("uptime").textContent = `${uptimeHours} hours, ${uptimeMinutes} mins`;
-  }
-  setInterval(updateUptime, 60000);
+<script src="mango_terminal.js"></script>
 
-  function updateResolution() {
-    document.getElementById("resolution").textContent = window.innerWidth + "x" + window.innerHeight;
-  }
-  function getCPUInfo() {
-    return navigator.hardwareConcurrency ? navigator.hardwareConcurrency + " cores" : "Unknown";
-  }
-  function getGPUInfo() {
-    let canvas = document.createElement('canvas');
-    let gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
-    if (!gl) return 'Unavailable';
-    let debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
-    return debugInfo ? gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) : 'Unknown GPU';
-  }
-  function getMemoryInfo() {
-    return navigator.deviceMemory ? (navigator.deviceMemory * 1024).toFixed(0) + " MB" : "Unknown";
-  }
-  function updateHardwareInfo() {
-    updateResolution();
-    document.getElementById('cpu').textContent = getCPUInfo();
-    document.getElementById('gpu').textContent = getGPUInfo();
-    document.getElementById('memory').textContent = getMemoryInfo();
-  }
-  window.addEventListener('load', updateHardwareInfo);
-  window.addEventListener('resize', updateResolution);
-
-  const canvas = document.getElementById("matrix");
-  const ctx = canvas.getContext("2d");
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
-  const fontSize = 16;
-  const columns = Math.floor(canvas.width / fontSize);
-  const drops = Array(columns).fill(0);
-  function drawMatrix() {
-    ctx.fillStyle = "rgba(0, 0, 0, 0.05)";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = "#800080";
-    ctx.font = fontSize + "px monospace";
-    for (let i = 0; i < drops.length; i++) {
-      const char = Math.random() > 0.5 ? "1" : "0";
-      ctx.fillText(char, i * fontSize, drops[i] * fontSize);
-      if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) drops[i] = 0;
-      drops[i]++;
-    }
-  }
-  setInterval(drawMatrix, 50);
-
-  const terminalContainer = document.getElementById("terminal-container");
-  const commands = {
-    "--help": `Available commands:\n--help         Show this help message\nclear          Clear the terminal\nversion        Show MangoOS version\nneofetch       Display system info\nuname -a       Show kernel and system info\nls             List current directory\ncd             Change directory (mock)\nwhoami         Display current user\ninstagram      Show Instagram link`,
-    "version": "MangoOS version 1.0.0",
-    "neofetch": () => `MangoOS 1.0.0\n---------------\nOS: MangoOS 1.0.0\nKernel: 5.15.0-mango\nShell: zsh 5.8\nResolution: ${window.innerWidth}x${window.innerHeight}\nCPU: ${getCPUInfo()}\nGPU: ${getGPUInfo()}\nMemory: ${getMemoryInfo()}`,
-    "uname -a": "MangoOS 5.15.0-mango #1 SMP Fri Jun 21 2025 x86_64 GNU/Linux",
-    "ls": "Desktop  Documents  Downloads  Music  Pictures  Videos",
-    "cd": "You are not allowed to leave this directory :)",
-    "whoami": "mang0",
-    "instagram": () => "Instagram: https://instagram.com/mang0.inc"
-  };
-
-  function createInputLine() {
-    const wrapper = document.createElement("div");
-    wrapper.className = "input-line";
-
-    const prompt = document.createElement("span");
-    prompt.className = "prompt";
-    prompt.textContent = "┌──(mang0㉿mang0)-[~]\n└─$ ";
-
-    const input = document.createElement("input");
-    input.className = "input";
-    input.autocomplete = "off";
-    input.autofocus = true;
-
-    wrapper.appendChild(prompt);
-    wrapper.appendChild(input);
-    terminalContainer.appendChild(wrapper);
-
-    input.focus();
-
-    input.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") {
-        const cmd = input.value.trim();
-        wrapper.removeChild(input);
-        wrapper.textContent += cmd;
-
-        if (cmd === "clear") {
-          terminalContainer.innerHTML = "";
-          createInputLine();
-          return;
-        }
-
-        let output = commands[cmd];
-        if (typeof output === "function") output = output();
-        if (!output) output = `Command not found: ${cmd}`;
-
-        const outputLine = document.createElement("div");
-        outputLine.className = "line";
-        outputLine.innerHTML = output.includes("https://") ? `<a href="${output.split(' ').pop()}" target="_blank">${output}</a>` : output;
-        terminalContainer.appendChild(outputLine);
-
-        createInputLine();
-
-        setTimeout(() => {
-          input.scrollIntoView({ behavior: "smooth", block: "center" });
-        }, 10);
-      }
-    });
-  }
-
-  createInputLine();
-</script>
 </body>
 </html>
